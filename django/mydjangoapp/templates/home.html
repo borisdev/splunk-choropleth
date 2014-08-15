@@ -37,15 +37,6 @@
         },
         map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
-	// Step 2 - Create a choropleth overlay map
-
-	var overlayOptions = {
-		geography: geoscore.geography.COUNTIES,
-		opacity: 0.75
-	    };
-
-	var overlay = geoscore.maps.Overlay(overlayOptions);
-	map.overlayMapTypes.push(overlay); 
 
         var deps = [
             "splunkjs/ready!"
@@ -73,13 +64,28 @@
             output_mode: 'json_rows',
             count: 0 // get all results
         });
+
+        //Splunk results 
+	//TODO: Percentiles
         var formatResults = function(results) {
             if (!data.hasData()) {
                 return;
             }
-            // Format Splunk data for Sankey
+
             var collection = results.collection().toJSON();
+	    // {block_offset="0",
+	    // count="4"},
 	    console.log(collection);
+
+	    // Step 2 - Create a choropleth overlay map
+
+	    var overlayOptions = {
+		geography: geoscore.geography.COUNTIES,
+		opacity: 0.75
+	    };
+
+	    var overlay = geoscore.maps.Overlay(overlayOptions);
+	    map.overlayMapTypes.push(overlay); 
         }
         data.on('data', formatResults);
         manager.startSearch();
