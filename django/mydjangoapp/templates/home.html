@@ -37,6 +37,16 @@
         },
         map = new google.maps.Map(document.getElementById("map"), mapOptions);
 
+	// Step 2 - Create a choropleth overlay map
+
+	var overlayOptions = {
+		geography: geoscore.geography.COUNTIES,
+		opacity: 0.75
+	    };
+
+	var overlay = geoscore.maps.Overlay(overlayOptions);
+	map.overlayMapTypes.push(overlay); 
+
         var deps = [
             "splunkjs/ready!"
         ];
