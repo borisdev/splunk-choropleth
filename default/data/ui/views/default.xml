@@ -1,1 +1,1 @@
-<view template="mydjangoapp:/templates/redirect.tmpl" isVisible="false"><label>Home</label></view>
+<view template="sfcrime:/templates/redirect.tmpl" isVisible="false"><label>Home</label></view>
