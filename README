@@ -1,18 +1,22 @@
 Introduction
 ------------
-Describe your application here.
+This app uses San Francisco crime incidents to demonstrate how Splunk search results can be visualized as choropleth maps.
 
 Installation
 ------------
-Describe how to install your application here (if applicable).
+Input the demo file $SPLUNK_HOME/etc/appsapps/sfcrime/sf_crimes_2013_blockgroup.json.
+
+To input the demo file from the GUI follow these menu options: Data inputs » Add data » Files & directories » Add new.
+
+Be sure to look for the `More settings` option and then set the `Host field value` to 'sf_crimes_2013_blockgroup.json'
 
 Usage
 -----
-Describe how to use your application here.
+These are examples of splunk searches you can run that make maps:
 
-TODO:
------
-If you intend to upload this application to Splunk Apps, we strongly recommend 
-that you update the app.conf file (located in your app's /default directory) 
-with your name, a one-sentence description of your application, and the
-version number of your application.
+host=sf_crimes_2013_blockgroup.json | search COCAINE |stats count by block_offset
+host=sf_crimes_2013_blockgroup.json | search ASSAULT |stats count by block_offset
+host=sf_crimes_2013_blockgroup.json | search THEFT |stats count by block_offset
+
+You can replace the words that are in caps above with other words you want to search that occur in the police crime incident events.
+
