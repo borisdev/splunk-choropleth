@@ -14,10 +14,10 @@
     {% searchcontrols id="searchcontrols1" managerid="search1" %}
     <div>
         <b> Blue denotes high crime areas. Red denotes low crime areas.</b>
-        <b> Step 1</b> 
+        <p><b> Step 1</b></p>
         <p>Make sure you injest this file $SPLUNK_HOME/etc/appsapps/sfcrime/sf_crimes_2013_blockgroup.json and
         tag it as follows 'host=sf_crimes_2013_blockgroup.json'</p>
-        <b> Step 2</b>
+        <p><b> Step 2</b></p>
         <p>Try out these example searches:</p>
         <ul>
             <li>host=sf_crimes_2013_blockgroup.json | search COCAINE |stats count by block_offset</li>
