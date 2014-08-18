@@ -78,13 +78,13 @@
 	    console.log(collection);
 
 	    // Step 2 - Create a choropleth overlay map
+            var myGeography = geoscore.geography.COUNTIES,
+            overlayOptions = {
+                geography: myGeography,
+                opacity: 0.75
+            },
+            overlay = geoscore.maps.Overlay(overlayOptions);
 
-	    var overlayOptions = {
-		geography: geoscore.geography.COUNTIES,
-		opacity: 0.75
-	    };
-
-	    var overlay = geoscore.maps.Overlay(overlayOptions);
 	    map.overlayMapTypes.push(overlay); 
         }
         data.on('data', formatResults);
