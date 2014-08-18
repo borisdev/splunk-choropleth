@@ -78,7 +78,9 @@
 	        // Step 2 - Create a choropleth overlay map
             // var myGeography = geoscore.geography.COUNTIES;
             var myGeography = geoscore.geography.US_CENSUS_BLOCKGROUPS;
+
             var count_list = new Array(myGeography.numregions);
+
             for (var i = 0; i < myGeography.numregions; i++) count_list[i] = 0;
             var index;
             for (index = 0; index < collection.length; ++index) {
@@ -87,7 +89,6 @@
                     count_list[offset]+=count;
                 }
             var percentiles_list=percentiles(count_list);
-            console.log(percentiles_list);
 
             var overlayOptions = {
                     geography: myGeography,
@@ -140,50 +141,6 @@ var IsNan = function(list) {
     return indexes
 };
 
-function sortWithIndeces(toSort,floor) {
-    /*
-    Returns the rank position of all elements of list
-
-    Modified from stackoverflow
-
-    Usage:
-
-        var test = [1000,100, 99,"NaN","None",0,0,0,0];
-        sortWithIndeces(test,0);
-        console.log(test.percentiles);
-        [10, 9, 8, -30, -30, 0, 0, 0, 0]
-
-    */
-    var TIED_FOR_ZERO=Where_zeros(toSort);
-    var IS_NAN = IsNan(toSort);
-    var N =toSort.length;
-    //console.log(TIED_FOR_ZERO);
-
-    for (var i = 0; i < IS_NAN.length; i++) {
-        toSort[IS_NAN[i]]=0; // allows math then below force NaNs to -3, transperent
-    }
-
-    for (var i = 0; i < toSort.length; i++) {
-            toSort[i] = [toSort[i], i];
-    }
-    toSort.sort(function(left, right) {
-          return left[0] < right[0] ? -1 : 1;
-    });
-    toSort.percentiles = [];
-    for (var j = 0; j < toSort.length; j++) {
-            toSort.percentiles.push(Math.round(((toSort[j][1] + 1)/N *10)+floor));
-            toSort[j] = toSort[j][0];
-            }
-
-    for (var i = 0; i < TIED_FOR_ZERO.length; i++) {
-        toSort.percentiles[TIED_FOR_ZERO[i]]=floor; // force ZERO values to 0 percentile
-    }
-    for (var i = 0; i < IS_NAN.length; i++) {
-        toSort.percentiles[IS_NAN[i]]=-3; // force NaNs to -3, transperent
-    }
-
-    return toSort;
-}
 
 
 
