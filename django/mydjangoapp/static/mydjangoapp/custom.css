@@ -1,3 +1,7 @@
+#map img {
+  max-width: none;
+}
+
 .main-area {
     border: 1px solid black;
 }
