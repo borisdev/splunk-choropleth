@@ -31,8 +31,10 @@
     <script>
 	// Step 1 - Create a google map
     	var mapOptions = {
-            zoom: 4,
-            center: new google.maps.LatLng(39.83, -96.0),
+            //zoom: 4,//USA
+            zoom: 11,//SF
+            //center: new google.maps.LatLng(39.83, -96.0),//USA
+            center: new google.maps.LatLng(37.7833, -122.4167),//SF
             mapTypeId: google.maps.MapTypeId.ROADMAP
         },
         map = new google.maps.Map(document.getElementById("map"), mapOptions);
@@ -65,30 +67,162 @@
             count: 0 // get all results
         });
 
-        //Splunk results 
-	//TODO: Percentiles
+        //callback after we get Splunk search results
         var formatResults = function(results) {
-            if (!data.hasData()) {
-                return;
-            }
-
+                if (!data.hasData()) {
+                    return;
+                }
             var collection = results.collection().toJSON();
-	    // {block_offset="0",
-	    // count="4"},
-	    console.log(collection);
+	        // {block_offset="0",count="4"},
+	        // console.log(collection);
+	        // Step 2 - Create a choropleth overlay map
+            // var myGeography = geoscore.geography.COUNTIES;
+            var myGeography = geoscore.geography.US_CENSUS_BLOCKGROUPS;
+            var count_list = new Array(myGeography.numregions);
+            for (var i = 0; i < myGeography.numregions; i++) count_list[i] = 0;
+            var index;
+            for (index = 0; index < collection.length; ++index) {
+                    var offset = parseInt(collection[index]["block_offset"]);
+                    var count = parseInt(collection[index]["count"]);
+                    count_list[offset]+=count;
+                }
+            var percentiles_list=percentiles(count_list);
+            console.log(percentiles_list);
 
-	    // Step 2 - Create a choropleth overlay map
-            var myGeography = geoscore.geography.COUNTIES,
-            overlayOptions = {
-                geography: myGeography,
-                opacity: 0.75
-            },
-            overlay = geoscore.maps.Overlay(overlayOptions);
+            var overlayOptions = {
+                    geography: myGeography,
+                    opacity: 0.75
+                };
+            var overlay = geoscore.maps.Overlay(overlayOptions);
+	        map.overlayMapTypes.push(overlay); 
 
-	    map.overlayMapTypes.push(overlay); 
+            // Step 2 - Set the classification
+            overlay.setClassification(geoscore.classifications.fromClassList(percentiles_list));
+
+            // Step 3 - Set the colorScheme
+            overlay.setColors(geoscore.colors.colorBrewer("RdBu", 11));
+
         }
+
         data.on('data', formatResults);
         manager.startSearch();
         });
+
+
+/* UTILITY FUNCTIONS */
+
+var Where_zeros = function(list) {
+    /* get indexes of where all the zeros are in an array
+ *     Where_zeros([0,1,1,2,3,4,0])
+ *         [0, 6]
+ *             */
+    var indexes=[];
+    var N = list.length-1;
+    for(var i=0 ; i<=N; i++ ){
+        if(list[i]===0){
+            indexes.push(i);
+        }
+    }
+    return indexes
+};
+var IsNan = function(list) {
+    /* get indexes of where all the zeros are in an array
+ *     Where_zeros([0,1,1,2,3,4,0])
+ *         [0, 6]
+ *             */
+    var indexes=[];
+    var N = list.length-1;
+    for(var i=0 ; i<=N; i++ ){
+        if(isNaN(list[i])){
+            indexes.push(i);
+        }
+    }
+    return indexes
+};
+
+function sortWithIndeces(toSort,floor) {
+    /*
+    Returns the rank position of all elements of list
+
+    Modified from stackoverflow
+
+    Usage:
+
+        var test = [1000,100, 99,"NaN","None",0,0,0,0];
+        sortWithIndeces(test,0);
+        console.log(test.percentiles);
+        [10, 9, 8, -30, -30, 0, 0, 0, 0]
+
+    */
+    var TIED_FOR_ZERO=Where_zeros(toSort);
+    var IS_NAN = IsNan(toSort);
+    var N =toSort.length;
+    //console.log(TIED_FOR_ZERO);
+
+    for (var i = 0; i < IS_NAN.length; i++) {
+        toSort[IS_NAN[i]]=0; // allows math then below force NaNs to -3, transperent
+    }
+
+    for (var i = 0; i < toSort.length; i++) {
+            toSort[i] = [toSort[i], i];
+    }
+    toSort.sort(function(left, right) {
+          return left[0] < right[0] ? -1 : 1;
+    });
+    toSort.percentiles = [];
+    for (var j = 0; j < toSort.length; j++) {
+            toSort.percentiles.push(Math.round(((toSort[j][1] + 1)/N *10)+floor));
+            toSort[j] = toSort[j][0];
+            }
+
+    for (var i = 0; i < TIED_FOR_ZERO.length; i++) {
+        toSort.percentiles[TIED_FOR_ZERO[i]]=floor; // force ZERO values to 0 percentile
+    }
+    for (var i = 0; i < IS_NAN.length; i++) {
+        toSort.percentiles[IS_NAN[i]]=-3; // force NaNs to -3, transperent
+    }
+
+    return toSort;
+}
+
+
+
+var percentiles = function(list) {
+    var N = list.length,
+        cleaned = [],
+        idx = [],
+        offset2rank = {},
+        i,
+        val;
+    if (N < 90000) {
+        // In chrome preallocating makes arrays slow if N is > ~90k
+        cleaned = new Array(N);
+        idx = new Array(N);
+        offset2rank = new Array(N)
+    }
+    for (i=0; i < N; i++){
+        val = list[i];
+        cleaned[i] = isNaN(val) ? 0 : val;
+        idx[i] = i;
+    }
+
+    idx.sort(function(a,b){ return cleaned[a]-cleaned[b]; });
+
+    for (i=0; i < N; i++){
+        offset2rank[idx[i]] = i;
+    }
+
+    for (i=0; i < N; i++){
+        val = list[i];
+        if (val == 0) {
+            idx[i] = 0;
+        } else if (isNaN(val)) {
+            idx[i] = -3;
+        } else {
+            idx[i] = Math.round((offset2rank[i] + 1) / N * 10);
+        }
+    }
+    return idx;
+}
     </script>
 {% endblock js %}
