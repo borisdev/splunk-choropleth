@@ -1,0 +1,202 @@
+{% extends "splunkdj:base_with_account_bar.html" %}
+
+{% load splunkmvc %}
+
+{% block title %}{{app_name}} demo {% endblock title %}
+
+{% block css %}
+    <link rel="stylesheet" type="text/css" href="{{STATIC_URL}}{{app_name}}/custom.css" />
+    <link rel="stylesheet" type="text/css" href="{{STATIC_URL}}splunkjs/css/dashboard.css" />
+{% endblock css %}
+
+{% block content %}
+    {% searchbar id="searchbar1" managerid="search1" %}
+    {% searchcontrols id="searchcontrols1" managerid="search1" %}
+    <div>
+        <b> Blue denotes high crime areas. Red denotes low crime areas.</b>
+        <b> Step 1</b> 
+        <p>Make sure you injest this file $SPLUNK_HOME/etc/appsapps/sfcrime/sf_crimes_2013_blockgroup.json and
+        tag it as follows 'host=sf_crimes_2013_blockgroup.json'</p>
+        <b> Step 2</b>
+        <p>Try out these example searches:</p>
+        <ul>
+            <li>host=sf_crimes_2013_blockgroup.json | search COCAINE |stats count by block_offset</li>
+            <li>host=sf_crimes_2013_blockgroup.json | search ASSAULT |stats count by block_offset</li>
+            <li>host=sf_crimes_2013_blockgroup.json | search THEFT |stats count by block_offset</li>
+        </ul>
+
+    </div>
+    <div style="width:100%; height:500px;" id=map></div>
+    <script type="text/javascript" src="http://maps.google.com/maps/api/js?sensor=false"></script>
+    <script type="text/javascript" src="http://geoscore.com/static/geoscore.v1.min.js"></script>
+
+{% endblock content %}
+
+{% block managers %}
+    {% searchmanager id="search1" 
+        search="host=sf_crimes_2013_blockgroup.json | stats count by block_offset" 
+        preview=True 
+        required_field_list="*" status_buckets=300 %}
+{% endblock managers %}
+
+{% block js %}
+    <script>
+    var isOpera = !!window.opera || navigator.userAgent.indexOf(' OPR/') >= 0;
+    var isChrome = !!window.chrome && !isOpera;
+    if (isChrome!=true){
+        alert("<h1>Use Chrome browser for maps to work.</h1>");
+    }
+
+	// Step 1 - Create a google map
+    	var mapOptions = {
+            //zoom: 4,//USA
+            zoom: 12,//SF
+            //center: new google.maps.LatLng(39.83, -96.0),//USA
+            center: new google.maps.LatLng(37.7833, -122.4167),//SF
+            mapTypeId: google.maps.MapTypeId.ROADMAP
+        },
+        map = new google.maps.Map(document.getElementById("map"), mapOptions);
+
+
+        var deps = [
+            "splunkjs/ready!"
+        ];
+        require(deps, function(mvc) {
+            // Get instances of the views and search manager created using tags
+            var mytimeline = splunkjs.mvc.Components.getInstance("timeline1");
+            var mysearchbar = splunkjs.mvc.Components.getInstance("searchbar1");
+            var mysearch = splunkjs.mvc.Components.getInstance("search1");
+            // Update the search manager when the timeline changes
+            // Update the search manager when the query in the searchbar changes
+            mysearchbar.on("change", function() {
+                mysearch.settings.unset("search");
+                mysearch.settings.set("search", mysearchbar.val());
+            });
+        var manager = mysearch;
+        var data = manager.data('results', {
+            output_mode: 'json_rows',
+            count: 0 // get all results
+        });
+
+        //callback after we get Splunk search results
+        var formatResults = function(results) {
+                if (!data.hasData()) {
+                    return;
+                }
+            var collection = results.collection().toJSON();
+	        // {block_offset="0",count="4"},
+	        // console.log(collection);
+	        // Step 2 - Create a choropleth overlay map
+            // var myGeography = geoscore.geography.COUNTIES;
+            var myGeography = geoscore.geography.US_CENSUS_BLOCKGROUPS;
+
+            var count_list = new Array(myGeography.numregions);
+            console.log(myGeography.numregions)
+
+            for (var i = 0; i < myGeography.numregions; i++) count_list[i] = 0;
+            var index;
+            for (index = 0; index < collection.length; ++index) {
+                    var offset = parseInt(collection[index]["block_offset"]);
+                    var count = parseInt(collection[index]["count"]);
+                    count_list[offset]+=count;
+                }
+            var percentiles_list=percentiles(count_list);
+
+            var overlayOptions = {
+                    geography: myGeography,
+                    opacity: 0.75
+                };
+            var overlay = geoscore.maps.Overlay(overlayOptions);
+	        map.overlayMapTypes.push(overlay); 
+
+            // Step 2 - Set the classification
+            overlay.setClassification(geoscore.classifications.fromClassList(percentiles_list));
+
+            // Step 3 - Set the colorScheme
+            overlay.setColors(geoscore.colors.colorBrewer("RdBu", 11));
+
+        }
+
+        data.on('data', formatResults);
+        manager.startSearch();
+        });
+
+
+/* UTILITY FUNCTIONS */
+
+var Where_zeros = function(list) {
+    /* get indexes of where all the zeros are in an array
+ *     Where_zeros([0,1,1,2,3,4,0])
+ *         [0, 6]
+ *             */
+    var indexes=[];
+    var N = list.length-1;
+    for(var i=0 ; i<=N; i++ ){
+        if(list[i]===0){
+            indexes.push(i);
+        }
+    }
+    return indexes
+};
+var IsNan = function(list) {
+    /* get indexes of where all the zeros are in an array
+ *     Where_zeros([0,1,1,2,3,4,0])
+ *         [0, 6]
+ *             */
+    var indexes=[];
+    var N = list.length-1;
+    for(var i=0 ; i<=N; i++ ){
+        if(isNaN(list[i])){
+            indexes.push(i);
+        }
+    }
+    return indexes
+};
+
+
+
+
+var percentiles = function(list) {
+    var N = list.length,
+        cleaned = [],
+        idx = [],
+        offset2rank = {},
+        i,
+        val;
+    if (N < 90000) {
+        // In chrome preallocating makes arrays slow if N is > ~90k
+        cleaned = new Array(N);
+        idx = new Array(N);
+        offset2rank = new Array(N)
+    }
+    for (i=0; i < N; i++){
+        val = list[i];
+        cleaned[i] = isNaN(val) ? 0 : val;
+        idx[i] = i;
+    }
+
+    idx.sort(function(a,b){ return cleaned[a]-cleaned[b]; });
+
+    for (i=0; i < N; i++){
+        //offset2rank[idx[i]] = i; // CORRECT
+        offset2rank[idx[i]] = i-N+580;  // BORIS BAD HACK FOR SF
+    }
+
+    for (i=0; i < N; i++){
+        val = list[i];
+        if (val == 0) {
+            idx[i] = 0;
+        } else if (isNaN(val)) {
+            idx[i] = -3;
+        } else {
+            //idx[i] = Math.round((offset2rank[i] + 1) / N * 10);// CORRECT 
+            idx[i] = Math.round((offset2rank[i] + 1) / 580 * 10);// BORIS BAD HACK FOR SF
+            if(idx[i] < 0){// BORIS BAD HACK FOR SF
+                idx[i]=0;// BORIS BAD HACK FOR SF
+            }// BORIS BAD HACK FOR SF
+        }
+    }
+    return idx;
+}
+    </script>
+{% endblock js %}
